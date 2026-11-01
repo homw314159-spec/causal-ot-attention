@@ -1,0 +1,27 @@
+# Experiment 0004 arms (docs/experiments.md §3.1-3.2): the
+# config overrides of each run on top of the unchanged base configs (§3.3).
+# Read by scripts/exp0004.py.
+
+# Part A: configs/exp0002/confirm.yaml (100M, 2B tokens) at training length 4096, 32,768
+# tokens per step as at 1024 and 2048. B0 is evaluated with YaRN-t offline. Seeds by machine
+# (§3.1, §10): both arms of a seed run on the same machine.
+a:
+  config: configs/exp0002/confirm.yaml
+  arms:
+    b0: [attention.pe=rope]
+    cable: [attention.pe=cable, train.lr=7.5e-4]  # ADR-0013's default main line
+  overrides: [lm.seq_len=4096, data.batch_size=2, lm.grad_accum=4]
+  seeds: {rtx4090: [8, 9], spark: [10]}
+
+# Part B: configs/exp0002/screen.yaml (25M, length 512, 0.5B tokens), RTX 4090. Initial
+# exponents from EXPONENT_RANGES of geoattn_core.pe.log_bias, shifted by the margin (§2, G1).
+b:
+  config: configs/exp0002/screen.yaml
+  arms:
+    p1gt1: [attention.pe=rope, attention.pe_bias=logbias, attention.logbias_exponent=gt1]
+    p1m25: [attention.pe=rope, attention.pe_bias=logbias, attention.logbias_exponent=gt1,
+            attention.logbias_margin=0.25]
+    p1m50: [attention.pe=rope, attention.pe_bias=logbias, attention.logbias_exponent=gt1,
+            attention.logbias_margin=0.5]
+    p4: [attention.pe=rope, attention.pe_bias=alibi]
+  seeds: [3, 4, 5]

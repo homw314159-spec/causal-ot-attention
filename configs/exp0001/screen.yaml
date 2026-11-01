@@ -1,0 +1,62 @@
+# Experiment 0001 screening (docs/experiments.md §3.1).
+#
+# One base config; arms differ ONLY in attention.normalizer, set by overrides:
+#   softmax baseline:  attention.normalizer.name=softmax attention.normalizer.eps=0.7|1.0|1.4
+#   path C:            attention.normalizer.name=unbalanced attention.normalizer.rho=0.1|0.25|0.5|0.75
+#   seeds:             seed=0|1  (data.seed stays 0: every run sees the same batches, §3.3)
+# Check with --dry-run that nothing else differs. n_iters (G4) and lr are fixed by
+# report 0002 (phase 0) and recorded in the experiment's change log.
+name: exp0001_screen
+task: lm
+seed: 0
+output_dir: runs
+
+data:
+  dataset: tokens
+  root: data/fineweb_edu
+  batch_size: 32  # micro-batch; x grad_accum 2 = 64 sequences = 32768 tokens per step
+  seed: 0
+
+model:
+  dim: 512
+  depth: 8
+  heads: 8
+  mlp_ratio: 4.0  # 25.2M non-embedding parameters (+25.8M tied token embedding)
+  dropout: 0.0
+  vocab_size: 50304
+  checkpoint: true
+
+attention:
+  pe: rope
+  normalizer:
+    name: softmax
+    eps: 1.0
+    n_iters: 13  # unbalanced only; set per rho by scripts/exp0001_screen.py (report 0002 §7.2)
+    rho: 0.5
+    column_mass: prefix
+
+lm:
+  seq_len: 512
+  token_budget: 500_000_000  # 15258 steps
+  grad_accum: 2
+  warmup_steps: 750
+  min_lr_ratio: 0.1
+  eval_every: 1000
+  eval_tokens: 2_000_000
+  eval_lengths: [1, 2]  # 512 (primary metric) and 1024 (extrapolation)
+
+train:
+  lr: 3.0e-3  # report 0002 §7.3: geometric midpoint of the two best short-run values
+  weight_decay: 0.1
+  grad_clip: 1.0
+  amp: true
+  compile_normalizer: true
+  vram_limit_gb: 40  # RTX 4090; override on the DGX Spark
+
+tracking:  # mirror only (ADR-0004); numbers in reports come from metrics.jsonl
+  wandb: false
+  project: attention-geometry
+  entity: null
+  group: null  # set per arm by scripts/exp0001_screen.py (seeds of one arm together)
+  tags: [exp0001, screening]
+  mode: disabled

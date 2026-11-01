@@ -1,0 +1,32 @@
+# Experiment 0002 arms (docs/experiments.md §3.1): the
+# config overrides of each arm on top of the stage's base config (screen.yaml / confirm).
+# Arms differ only in attention.pe, attention.pe_bias, their parameters and, for the OT arms,
+# attention.normalizer. Read by scripts/exp0002_screen.py and scripts/exp0002_calibrate.py.
+
+arms:
+  b0: [attention.pe=rope]
+  p1: [attention.pe=rope, attention.pe_bias=logbias]
+  p2: [attention.pe=rope, attention.pe_bias=logbias, attention.logbias_learnable=false]
+  p3: [attention.pe=rope, attention.pe_bias=kerple]
+  p4: [attention.pe=rope, attention.pe_bias=alibi]
+  p5: [attention.pe=identity, attention.pe_bias=logbias]
+  p6: [attention.pe=rope, attention.pe_bias=gated_logbias]
+  lc: [attention.pe=rope, attention.pe_bias=clock_logbias]
+  gm: [attention.pe=grape_m]
+  ga: [attention.pe=grape_a]
+  gap: [attention.pe=grape_ap]
+  fox: [attention.pe=fox]
+  cable: [attention.pe=cable]
+  o1: [attention.pe=rope]  # + ot below
+  # confirmation control: log-n (scalable) softmax (experiment 0001 change log 2026-09-28)
+  logn: [attention.pe=rope, attention.normalizer.name=scaled_softmax]
+
+# Prefix unbalanced OT at rho 0.5 (experiment 0001: k = 13, fused kernel). O1 = o1 + ot;
+# O2 = the screening-selected P1-P5 arm + ot, so O2 and that arm differ only in the
+# normalizer (the OT-effect comparison, change log 2026-10-06).
+ot:
+  - attention.normalizer.name=unbalanced
+  - attention.normalizer.rho=0.5
+  - attention.normalizer.n_iters=13
+  - attention.normalizer.impl=fused
+o2_pool: [p1, p2, p3, p4, p5]

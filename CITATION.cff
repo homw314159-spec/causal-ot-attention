@@ -1,0 +1,13 @@
+cff-version: 1.2.0
+message: "Please cite the accompanying paper when using this research code."
+title: "Causal Optimal-Transport Attention: Positional Priors and Length Extrapolation"
+type: software
+version: 0.1.0
+repository-code: "https://github.com/homw314159-spec/causal-ot-attention"
+authors:
+  - family-names: Lian
+    given-names: Ming
+license: MIT
+abstract: >-
+  Reference operators, fused kernels, language-model experiments and numerical
+  checks for causal optimal-transport attention and positional priors.

@@ -1,0 +1,25 @@
+# Experiment 0003 arms (docs/experiments.md §3.1-3.2): the
+# config overrides of each run on top of experiment 0002's unchanged base configs (§3.5).
+# Read by scripts/exp0003_a.py and scripts/exp0003_b1.py.
+
+# Part A: configs/exp0002/confirm.yaml (100M, 2B tokens). B0 is evaluated with YaRN-t offline.
+a:
+  config: configs/exp0002/confirm.yaml
+  arms:
+    b0: [attention.pe=rope]
+    cable: [attention.pe=cable, train.lr=7.5e-4]  # ADR-0013's default main line
+  parts:
+    a1: {seeds: [3, 4, 5, 6, 7], overrides: []}
+    # experiment 0002's scale-check overrides: 32,768 tokens per step as at 1024
+    a2: {seeds: [3, 4, 5], overrides: [lm.seq_len=2048, data.batch_size=4, lm.grad_accum=4]}
+
+# Part B1: configs/exp0002/screen.yaml (25M, length 512, 0.5B tokens); initial exponents from
+# EXPONENT_RANGES of geoattn_core.pe.log_bias (§3.2).
+b1:
+  config: configs/exp0002/screen.yaml
+  arms:
+    p1free: [attention.pe=rope, attention.pe_bias=logbias]
+    p1gt1: [attention.pe=rope, attention.pe_bias=logbias, attention.logbias_exponent=gt1]
+    p1lt1: [attention.pe=rope, attention.pe_bias=logbias, attention.logbias_exponent=lt1]
+    p4: [attention.pe=rope, attention.pe_bias=alibi]
+  seeds: [0, 1, 2]

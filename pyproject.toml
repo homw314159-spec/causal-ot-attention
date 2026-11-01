@@ -1,0 +1,132 @@
+# Workspace root. Not a distributable package itself (tool.uv.package = false);
+# it exists to pin the member set, shared tooling, and the torch index routing.
+
+[project]
+name = "attention-geometry"
+version = "0.1.0"
+license = "MIT"
+description = "Geometric decomposition of attention: group-theoretic position encoding x optimal-transport normalization"
+requires-python = ">=3.11"
+dependencies = [
+    "geoattn-core",
+    "geoattn-obs",
+    "geoattn-kernels",
+    "geoattn-train",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "hypothesis>=6.100",
+    "ruff>=0.6",
+    "pyright>=1.1.380",
+    "pre-commit>=3.7",
+    "pot>=0.9.7.post1",
+]
+# Extra deps to run the original Sinkformers repo (third_party/) unmodified.
+baseline = []
+# Corpus preparation (scripts/prepare_fineweb.py). Installed by default so that
+# pyright can check the script in CI; nothing under packages/ imports these.
+data = [
+    "huggingface-hub>=2.0.0",
+    "numpy>=2.4.6",
+    "pyarrow>=25.0.1",
+    "tiktoken>=0.14.0",
+]
+# Accelerator for Linux x86_64 (no effect elsewhere): "cpu" (default; CI) or "gpu" for
+# rented GPU nodes (experiment 0001 confirmation): `uv sync --no-group cpu --group gpu`.
+# Both variants live in the one uv.lock, so installs stay reproducible.
+cpu = [
+    "torch>=2.4",
+]
+gpu = [
+    "torch>=2.4",
+]
+# Paper figures (scripts/paper_figures.py). Installed by default, like "data", so that
+# pyright can check the script in CI; nothing under packages/ imports it.
+plots = [
+    "matplotlib>=3.11.2",
+]
+
+[tool.uv]
+package = false
+default-groups = ["dev", "data", "plots", "cpu"]
+conflicts = [[{ group = "cpu" }, { group = "gpu" }]]
+
+[tool.uv.workspace]
+members = ["packages/*"]
+
+[tool.uv.sources]
+geoattn-core = { workspace = true }
+geoattn-obs = { workspace = true }
+geoattn-kernels = { workspace = true }
+geoattn-train = { workspace = true }
+# GPU boxes -> CUDA 13.0 wheels: Windows (RTX 4090) and the DGX Spark (linux aarch64, GB10 /
+# sm_121). One index for both keeps the torch version identical across the machines that share
+# an experiment. Everything else (CI on x86_64 linux, macOS) -> CPU wheels.
+torch = [
+    { index = "pytorch-cu130", marker = "sys_platform == 'win32' or (sys_platform == 'linux' and platform_machine == 'aarch64')" },
+    { index = "pytorch-cpu", marker = "sys_platform == 'darwin'" },
+    { index = "pytorch-cpu", group = "cpu", marker = "sys_platform == 'linux' and platform_machine == 'x86_64'" },
+    { index = "pytorch-cu130", group = "gpu", marker = "sys_platform == 'linux' and platform_machine == 'x86_64'" },
+]
+
+[[tool.uv.index]]
+name = "pytorch-cu130"
+url = "https://download.pytorch.org/whl/cu130"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+# ---------------------------------------------------------------- tooling
+
+[tool.pytest.ini_options]
+testpaths = ["packages", "scripts/tests"]
+addopts = "--import-mode=importlib -ra"
+markers = [
+    "gpu: requires a CUDA device (skipped in CI)",
+    "slow: long-running; excluded from the default pre-push run",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = [
+    "E", "F", "W", "I", "B", "UP", "SIM", "RUF", "NPY",
+    # Structure limits (thresholds below): complexity, branches, args, statements, returns.
+    "C90", "PLR0911", "PLR0912", "PLR0913", "PLR0915",
+]
+ignore = [
+    "RUF001", "RUF002", "RUF003",  # allow CJK / math symbols in strings and comments
+]
+
+[tool.ruff.lint.per-file-ignores]
+# @triton.jit kernels take pointers, sizes and constexprs as flat scalars; they cannot be
+# bundled into a dataclass, so the argument limit does not apply there.
+"packages/geoattn-kernels/src/geoattn_kernels/_unbalanced_*.py" = ["PLR0913"]
+"benchmarks/gluon_fwd_prototype.py" = ["PLR0913"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.ruff.lint.pylint]
+max-args = 8        # bundle per-run state into a dataclass instead of passing it piecewise
+max-branches = 12
+max-statements = 50
+max-returns = 8     # allows flat type-dispatch functions such as config._coerce
+
+[tool.ruff.lint.isort]
+known-first-party = ["geoattn_core", "geoattn_obs", "geoattn_kernels", "geoattn_train"]
+
+[tool.pyright]
+include = ["packages", "scripts"]
+# @triton.jit bodies are Triton DSL (constexpr indexing, tensor ops on tl types), which the
+# Python type system cannot describe; the launch sites in unbalanced.py are still checked.
+ignore = ["packages/geoattn-kernels/src/geoattn_kernels/_unbalanced_*.py"]
+typeCheckingMode = "standard"
+reportPrivateImportUsage = false

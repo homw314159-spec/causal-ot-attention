@@ -1,0 +1,64 @@
+# Experiment 0002 screening (docs/experiments.md §3.1).
+#
+# One base config; arms differ ONLY in the overrides of configs/exp0002/arms.yaml (position
+# encoding, additive bias, and the normalizer for the OT arms) and the seed, set by
+# scripts/exp0002_screen.py. Training settings are those of experiment 0001's screening
+# (§3.1: lr 3e-3, 32,768 tokens per step, 0.5B tokens, the same data and order).
+# Check with --dry-run that nothing else differs.
+name: exp0002_screen
+task: lm
+seed: 0
+output_dir: runs
+
+data:
+  dataset: tokens
+  root: data/fineweb_edu
+  batch_size: 32  # micro-batch; x grad_accum 2 = 64 sequences = 32768 tokens per step
+  seed: 0
+
+model:
+  dim: 512
+  depth: 8
+  heads: 8
+  mlp_ratio: 4.0  # 25.2M non-embedding parameters (+25.8M tied token embedding)
+  dropout: 0.0
+  vocab_size: 50304
+  checkpoint: true
+  # FlexAttention wherever it applies (ADR-0012); the OT arms and GRAPE-AP fall back to the
+  # reference by themselves (change log 2026-10-06, G4)
+  attn_backend: flex
+
+attention:
+  pe: rope
+  normalizer:
+    name: softmax
+    eps: 1.0
+    n_iters: 13  # OT arms only (rho 0.5, experiment 0001)
+    rho: 0.5
+    column_mass: prefix
+
+lm:
+  seq_len: 512
+  token_budget: 500_000_000  # 15258 steps
+  grad_accum: 2
+  warmup_steps: 750
+  min_lr_ratio: 0.1
+  eval_every: 1000
+  eval_tokens: 2_000_000
+  eval_lengths: [1, 2]  # in-run; 4x, 8x and YaRN-t are evaluated offline (§3.1)
+
+train:
+  lr: 3.0e-3  # §3.1: experiment 0001's screening value
+  weight_decay: 0.1
+  grad_clip: 1.0
+  amp: true
+  compile_normalizer: true
+  vram_limit_gb: 40  # RTX 4090
+
+tracking:  # mirror only (ADR-0004); numbers in reports come from metrics.jsonl
+  wandb: false
+  project: attention-geometry
+  entity: null
+  group: null  # set per arm by scripts/exp0002_screen.py (seeds of one arm together)
+  tags: [exp0002, screening]
+  mode: disabled

@@ -1,0 +1,39 @@
+# Seconds-long causal LM check on a synthetic token stream. No data, CPU is fine.
+#   uv run geoattn-train --config configs/smoke_lm.yaml
+name: smoke_lm
+task: lm
+seed: 0
+output_dir: runs
+
+data:
+  dataset: synthetic
+  batch_size: 8
+  synthetic_size: 40000  # tokens
+  seed: 0
+
+model:
+  dim: 64
+  depth: 2
+  heads: 2
+  mlp_ratio: 4.0
+  dropout: 0.0
+  vocab_size: 64
+
+attention:
+  pe: rope
+  normalizer:
+    name: unbalanced
+    rho: 0.5
+    n_iters: 3
+
+lm:
+  seq_len: 64
+  token_budget: 30720  # 60 steps of 8 x 64 tokens
+  warmup_steps: 10
+  eval_every: 20
+  eval_tokens: 2048
+  eval_lengths: [1, 2]
+
+train:
+  lr: 3.0e-3
+  weight_decay: 0.1

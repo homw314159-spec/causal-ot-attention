@@ -1,0 +1,201 @@
+0001-confirm:
+  config: configs/exp0001/confirm.yaml
+  prefix: exp0001_confirm_
+  seeds:
+  - 0
+  - 1
+  - 2
+  arms:
+    softmax:
+    - attention.normalizer.name=softmax
+    logn:
+    - attention.normalizer.name=scaled_softmax
+    rho0.5:
+    - attention.normalizer.name=unbalanced
+    - attention.normalizer.rho=0.5
+    - attention.normalizer.n_iters=13
+    - attention.normalizer.impl=fused
+    rho0.25:
+    - attention.normalizer.name=unbalanced
+    - attention.normalizer.rho=0.25
+    - attention.normalizer.n_iters=7
+    - attention.normalizer.impl=fused
+  overrides: []
+0002-screen:
+  config: configs/exp0002/screen.yaml
+  prefix: exp0002_screen_
+  seeds:
+  - 0
+  - 1
+  arms:
+    b0: &id001
+    - attention.pe=rope
+    p1:
+    - attention.pe=rope
+    - attention.pe_bias=logbias
+    p2:
+    - attention.pe=rope
+    - attention.pe_bias=logbias
+    - attention.logbias_learnable=false
+    p3:
+    - attention.pe=rope
+    - attention.pe_bias=kerple
+    p4: &id006
+    - attention.pe=rope
+    - attention.pe_bias=alibi
+    p5:
+    - attention.pe=identity
+    - attention.pe_bias=logbias
+    p6:
+    - attention.pe=rope
+    - attention.pe_bias=gated_logbias
+    lc: &id003
+    - attention.pe=rope
+    - attention.pe_bias=clock_logbias
+    gm: &id004
+    - attention.pe=grape_m
+    ga:
+    - attention.pe=grape_a
+    gap: &id005
+    - attention.pe=grape_ap
+    fox:
+    - attention.pe=fox
+    cable: &id002
+    - attention.pe=cable
+    o1:
+    - attention.pe=rope
+    - attention.normalizer.name=unbalanced
+    - attention.normalizer.rho=0.5
+    - attention.normalizer.n_iters=13
+    - attention.normalizer.impl=fused
+    o2:
+    - attention.pe=rope
+    - attention.pe_bias=alibi
+    - attention.normalizer.name=unbalanced
+    - attention.normalizer.rho=0.5
+    - attention.normalizer.n_iters=13
+    - attention.normalizer.impl=fused
+  overrides: []
+0002-confirm:
+  config: configs/exp0002/confirm.yaml
+  prefix: exp0002_confirm_
+  seeds:
+  - 0
+  - 1
+  - 2
+  arms:
+    b0: *id001
+    logn:
+    - attention.pe=rope
+    - attention.normalizer.name=scaled_softmax
+    cable: *id002
+    lc: *id003
+    gm: *id004
+    gap: *id005
+    p4: *id006
+    cable_lr:
+    - attention.pe=cable
+    - train.lr=7.5e-4
+    o2:
+    - attention.pe=rope
+    - attention.pe_bias=alibi
+    - attention.normalizer.name=unbalanced
+    - attention.normalizer.rho=0.5
+    - attention.normalizer.n_iters=13
+    - attention.normalizer.impl=fused
+    - train.compile_model=false
+  overrides: []
+0003-a1:
+  config: configs/exp0002/confirm.yaml
+  prefix: exp0003_a1_
+  seeds:
+  - 3
+  - 4
+  - 5
+  - 6
+  - 7
+  arms: &id007
+    b0:
+    - attention.pe=rope
+    cable:
+    - attention.pe=cable
+    - train.lr=7.5e-4
+  overrides: []
+0003-a2:
+  config: configs/exp0002/confirm.yaml
+  prefix: exp0003_a2_
+  seeds:
+  - 3
+  - 4
+  - 5
+  arms: *id007
+  overrides:
+  - lm.seq_len=2048
+  - data.batch_size=4
+  - lm.grad_accum=4
+0003-b1:
+  config: configs/exp0002/screen.yaml
+  prefix: exp0003_b1_
+  seeds:
+  - 0
+  - 1
+  - 2
+  arms:
+    p1free:
+    - attention.pe=rope
+    - attention.pe_bias=logbias
+    p1gt1:
+    - attention.pe=rope
+    - attention.pe_bias=logbias
+    - attention.logbias_exponent=gt1
+    p1lt1:
+    - attention.pe=rope
+    - attention.pe_bias=logbias
+    - attention.logbias_exponent=lt1
+    p4:
+    - attention.pe=rope
+    - attention.pe_bias=alibi
+  overrides: []
+0004-a:
+  config: configs/exp0002/confirm.yaml
+  prefix: exp0004_a_
+  seeds:
+  - 8
+  - 9
+  - 10
+  arms:
+    b0:
+    - attention.pe=rope
+    cable:
+    - attention.pe=cable
+    - train.lr=7.5e-4
+  overrides:
+  - lm.seq_len=4096
+  - data.batch_size=2
+  - lm.grad_accum=4
+0004-b:
+  config: configs/exp0002/screen.yaml
+  prefix: exp0004_b_
+  seeds:
+  - 3
+  - 4
+  - 5
+  arms:
+    p1gt1:
+    - attention.pe=rope
+    - attention.pe_bias=logbias
+    - attention.logbias_exponent=gt1
+    p1m25:
+    - attention.pe=rope
+    - attention.pe_bias=logbias
+    - attention.logbias_exponent=gt1
+    - attention.logbias_margin=0.25
+    p1m50:
+    - attention.pe=rope
+    - attention.pe_bias=logbias
+    - attention.logbias_exponent=gt1
+    - attention.logbias_margin=0.5
+    p4:
+    - attention.pe=rope
+    - attention.pe_bias=alibi
+  overrides: []

@@ -1,0 +1,67 @@
+# Experiment 0001 confirmation (docs/experiments.md §3.2 and the
+# change log entries of 2026-09-30). Preregistered scale: ~100M non-embedding parameters,
+# context 1024, 2B tokens.
+#
+# One base config; arms differ ONLY in attention.normalizer (and the seed), set by
+# scripts/exp0001_confirm.py:
+#   baseline:       softmax, eps 1.0 (screening, report 0004)
+#   log-n control:  scaled_softmax, scale_base_len 1024 (change log 2026-09-28)
+#   path C:         unbalanced rho 0.5 (k 13) and rho 0.25 (k 7) (report 0004 / 0006)
+#   seeds 0, 1, 2 (data.seed stays 0: every run sees the same batches)
+# train.lr is fixed by the confirmation learning-rate sweep and recorded in the change log.
+name: exp0001_confirm
+task: lm
+seed: 0
+output_dir: runs
+
+data:
+  dataset: tokens
+  root: data/fineweb_edu
+  batch_size: 8  # micro-batch; x grad_accum 4 = 32 sequences = 32768 tokens per step
+  seed: 0
+
+model:
+  dim: 768
+  depth: 14
+  heads: 12
+  mlp_ratio: 4.0  # 99.2M non-embedding parameters (+38.6M tied token embedding)
+  dropout: 0.0
+  vocab_size: 50304
+  checkpoint: false  # numerically identical either way; off is ~19% faster, peak <= 25.3 GB
+
+attention:
+  pe: rope
+  normalizer:
+    name: softmax
+    eps: 1.0
+    n_iters: 13  # unbalanced only; set per rho by scripts/exp0001_confirm.py
+    rho: 0.5
+    column_mass: prefix
+    impl: fused  # unbalanced only: geoattn-kernels (ADR-0009); same values to fp32 rounding
+    scale_base_len: 1024  # scaled_softmax only
+
+lm:
+  seq_len: 1024
+  token_budget: 2_000_000_000  # 61035 steps
+  grad_accum: 4
+  warmup_steps: 1220  # 2% of the steps
+  min_lr_ratio: 0.1
+  eval_every: 2000
+  eval_tokens: 2_000_000
+  eval_lengths: [1, 2]  # 1024 (primary metric) and 2048 (extrapolation, decision tier 2)
+
+train:
+  lr: 5.3e-4  # geometric midpoint of the two best sweep values (change log 2026-10-01)
+  weight_decay: 0.1
+  grad_clip: 1.0
+  amp: true
+  compile_normalizer: true
+  vram_limit_gb: 44  # fits both 48 GB and 80 GB cards
+
+tracking:  # mirror only (ADR-0004); numbers in reports come from metrics.jsonl
+  wandb: false
+  project: attention-geometry
+  entity: null
+  group: null  # set per arm by scripts/exp0001_confirm.py
+  tags: [exp0001, confirmation]
+  mode: disabled

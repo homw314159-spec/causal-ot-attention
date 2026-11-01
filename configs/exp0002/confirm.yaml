@@ -1,0 +1,67 @@
+# Experiment 0002 confirmation (docs/experiments.md §3.2).
+#
+# Experiment 0001's confirmation config (~100M non-embedding parameters, context 1024, 2B
+# tokens, lr 5.3e-4) with the flex backend; arms differ ONLY in the overrides of
+# configs/exp0002/arms.yaml and the seed. Hardware: A100-SXM4-80GB as defined in the change
+# log (2026-10-06, G4). Check with --dry-run that nothing else differs.
+name: exp0002_confirm
+task: lm
+seed: 0
+output_dir: runs
+
+data:
+  dataset: tokens
+  root: data/fineweb_edu
+  batch_size: 8  # micro-batch; x grad_accum 4 = 32 sequences = 32768 tokens per step
+  seed: 0
+
+model:
+  dim: 768
+  depth: 14
+  heads: 12
+  mlp_ratio: 4.0  # 99.2M non-embedding parameters (+38.6M tied token embedding)
+  dropout: 0.0
+  vocab_size: 50304
+  checkpoint: false  # numerically identical either way; off is ~19% faster, peak <= 25.3 GB
+  # FlexAttention wherever it applies (ADR-0012); OT arms, GRAPE-AP and log-n fall back
+  attn_backend: flex
+
+attention:
+  pe: rope
+  normalizer:
+    name: softmax
+    eps: 1.0
+    n_iters: 13  # OT arms only (rho 0.5, experiment 0001)
+    rho: 0.5
+    column_mass: prefix
+    impl: fused  # unbalanced only: geoattn-kernels (ADR-0009); same values to fp32 rounding
+    scale_base_len: 1024  # scaled_softmax only
+
+lm:
+  seq_len: 1024
+  token_budget: 2_000_000_000  # 61035 steps
+  grad_accum: 4
+  warmup_steps: 1220  # 2% of the steps
+  min_lr_ratio: 0.1
+  eval_every: 2000
+  eval_tokens: 2_000_000
+  eval_lengths: [1, 2]  # in-run; 4x, 8x, YaRN-t and retrieval are evaluated offline (§3.2)
+
+train:
+  lr: 5.3e-4  # §3.2: experiment 0001's confirmation value; the primary prior may add a variant
+  weight_decay: 0.1
+  grad_clip: 1.0
+  amp: true
+  compile_normalizer: true
+  # Speed only, same math (change log 2026-10-09; 4090: softmax arms -10%, G-AP -61%)
+  compile_model: true
+  fused_optimizer: true
+  vram_limit_gb: 44  # fits both 48 GB and 80 GB cards
+
+tracking:  # mirror only (ADR-0004); numbers in reports come from metrics.jsonl
+  wandb: false
+  project: attention-geometry
+  entity: null
+  group: null  # set per arm by the experiment 0002 launchers
+  tags: [exp0002, confirmation]
+  mode: disabled
